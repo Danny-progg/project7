@@ -6,12 +6,13 @@ from study.models import Course, Lesson
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ("id", "title", "description", "course")
+        fields = ("title", "description")
 
 
 class CourseSerializer(serializers.ModelSerializer):
     number_lessons = serializers.SerializerMethodField()
-    lesson = LessonSerializer(many=True, read_only=True)
+
+    lesson = LessonSerializer(source="lesson_set", many=True)
 
     def get_number_lessons(self, obj):
         return obj.lesson_set.all().count()
