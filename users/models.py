@@ -14,4 +14,3 @@ class User(AbstractUser):
     vrf_token = models.CharField(max_length=25, verbose_name='токен', **NULLABLE)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = []
