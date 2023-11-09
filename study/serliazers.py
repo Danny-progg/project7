@@ -6,7 +6,7 @@ from study.models import Course, Lesson, Payment
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ("title", "description")
+        fields = ("title", "description", "author", "id")
 
 
 class CourseSerializer(serializers.ModelSerializer):
