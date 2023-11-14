@@ -1,68 +1,81 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter
 from rest_framework import viewsets, generics
-from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from study.filters import PaymentFilter
-from rest_framework.response import Response
 from study.models import Course, Lesson, Payment
-from study.permissions import IsModerator, IsAuthor, IsEducator
-from study.serliazers import CourseSerializer, LessonSerializer, PaymentSerializer
-from users.models import UserRoles
+from study.permissions import IsNotStaffUser, IsOwnerOrStaffUser
+from study.serliazers import LessonSerializer, CourseSerializer, PaymentSerializer
 
 
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
     queryset = Course.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrStaffUser]
 
-    @action(detail=False, methods=['post'])
-    def custom_create(self, request, *args, **kwargs):
-        if request.user.role == UserRoles.MODERATOR:
-            return Response({"detail": "Модератор не может создать курс."})
+    def get_queryset(self):
+        if not self.request.user.is_staff:
+            return Course.objects.filter(owner=self.request.user)
+        elif self.request.user.is_staff:
+            return Course.objects.all()
+        else:
+            raise PermissionDenied
+
+    def create(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            raise PermissionDenied
         return super().create(request, *args, **kwargs)
 
-    def custom_destroy(self, request, *args, **kwargs):
-        if request.user.role == UserRoles.MODERATOR:
-            return Response({"detail": "Модератор не может удалить курс."})
+    def destroy(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            raise PermissionDenied
         return super().destroy(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
 class LessonCreateAPIView(generics.CreateAPIView):
     serializer_class = LessonSerializer
-    permission_classes = [IsAuthenticated, IsEducator]
+    permission_classes = [IsNotStaffUser]
 
     def perform_create(self, serializer):
-        new_lesson = serializer.save()
-        new_lesson.author = self.request.user
-        new_lesson.save()
+        serializer.save(owner=self.request.user)
 
 
-class LessonListAPIView(generics.ListAPIView):
+class LessonListAPIView(generics.ListCreateAPIView):
     serializer_class = LessonSerializer
-    queryset = Lesson.objects.all()
-    permission_classes = [IsAuthenticated, IsModerator | IsAuthor]
+
+    def get_queryset(self):
+        if not self.request.user.is_staff:
+            return Lesson.objects.filter(owner=self.request.user)
+        elif self.request.user.is_staff:
+            return Lesson.objects.all()
+        else:
+            raise PermissionDenied
 
 
 class LessonRetrieveAPIView(generics.RetrieveAPIView):
     serializer_class = LessonSerializer
     queryset = Lesson.objects.all()
-    permission_classes = [IsAuthenticated, IsModerator | IsAuthor]
+    permission_classes = [IsOwnerOrStaffUser]
 
 
 class LessonUpdateAPIView(generics.UpdateAPIView):
     serializer_class = LessonSerializer
     queryset = Lesson.objects.all()
-    permission_classes = [IsAuthenticated, IsModerator | IsAuthor]
+    permission_classes = [IsOwnerOrStaffUser]
 
 
 class LessonDestroyAPIView(generics.DestroyAPIView):
+    serializer_class = LessonSerializer
     queryset = Lesson.objects.all()
-    permission_classes = [IsAuthenticated, IsAuthor]
+    permission_classes = [IsNotStaffUser]
 
 
-class PaymentViewSet(viewsets.ModelViewSet):
+class PaymentListAPIView(generics.ListAPIView):
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
-    filter_backends = (DjangoFilterBackend,)
-    filterset_class = PaymentFilter
-    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ('course', 'payment_method')
+    ordering_fields = ('payment_date',)

@@ -1,25 +1,11 @@
 from rest_framework.permissions import BasePermission
 
-from users.models import UserRoles
 
-
-class IsModerator(BasePermission):
+class IsNotStaffUser(BasePermission):
     def has_permission(self, request, view):
-        if request.user.is_staff:
-            return True
-
-        return request.user == view.get_object().author
+        return not request.user.is_staff
 
 
-class IsAuthor(BasePermission):
-
+class IsOwnerOrStaffUser(BasePermission):
     def has_object_permission(self, request, view, obj):
-        if request.user == obj.user:
-            return True
-
-        return False
-
-
-class IsEducator(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.role == UserRoles.EDUCATOR
+        return obj.owner == request.user or request.user.is_staff
