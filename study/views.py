@@ -8,6 +8,8 @@ from study.paginators import Paginator
 from study.permissions import IsNotStaffUser, IsOwnerOrStaffUser
 from study.serliazers import LessonSerializer, CourseSerializer, PaymentSerializer, SubscriptionSerializer, \
     SubscriptionListSerializer
+from study.services import subscriptions_update_course_mailing, \
+    subscriptions_create_lesson_mailing, subscriptions_lesson_mailing
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -37,6 +39,10 @@ class CourseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    def perform_update(self, serializer):
+        serializer.save(owner=self.request.user)
+        subscriptions_update_course_mailing(serializer)
+
 
 class LessonCreateAPIView(generics.CreateAPIView):
     serializer_class = LessonSerializer
@@ -44,6 +50,7 @@ class LessonCreateAPIView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+        subscriptions_create_lesson_mailing(serializer)
 
 
 class LessonListAPIView(generics.ListCreateAPIView):
@@ -69,6 +76,10 @@ class LessonUpdateAPIView(generics.UpdateAPIView):
     serializer_class = LessonSerializer
     queryset = Lesson.objects.all()
     permission_classes = [IsOwnerOrStaffUser]
+
+    def perform_update(self, serializer):
+        subscriptions_lesson_mailing(serializer)
+        serializer.save()
 
 
 class LessonDestroyAPIView(generics.DestroyAPIView):

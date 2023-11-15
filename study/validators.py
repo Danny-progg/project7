@@ -6,5 +6,6 @@ class LinkValidator:
         self.link = link
 
     def __call__(self, value):
-        if dict(value).get(self.link) and 'youtube.com' not in dict(value).get(self.link).split('/'):
+        if (dict(value).get(self.link) and 'youtube.com' not in dict(value).get(self.link).split('/')) and (
+        'wwyoutube.com') not in dict(value).get(self.link).split('/'):
             raise serializers.ValidationError('Видео должно быть c youtube.com')
