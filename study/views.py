@@ -3,9 +3,10 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
 from rest_framework import viewsets, generics
 from rest_framework.permissions import IsAuthenticated
-from study.models import Course, Lesson, Payment
+from study.models import Course, Lesson, Payment, Subscription
 from study.permissions import IsNotStaffUser, IsOwnerOrStaffUser
-from study.serliazers import LessonSerializer, CourseSerializer, PaymentSerializer
+from study.serliazers import LessonSerializer, CourseSerializer, PaymentSerializer, SubscriptionSerializer, \
+    SubscriptionListSerializer
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -79,3 +80,31 @@ class PaymentListAPIView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ('course', 'payment_method')
     ordering_fields = ('payment_date',)
+
+
+class SubscriptionCreateAPIView(generics.CreateAPIView):
+    serializer_class = SubscriptionSerializer
+    permission_classes = [IsNotStaffUser]
+
+    def create(self, request, *args, **kwargs):
+        for subscription in Subscription.objects.filter(user=self.request.user):
+            if subscription.course.id == request.data.get('course'):
+                raise PermissionDenied('У вас уже есть подписка')
+        if self.request.user.id != request.data.get('user'):
+            raise PermissionDenied('Нельзя оформлять подписки на другого пользователя')
+        return super().create(request, *args, **kwargs)
+
+
+class SubscriptionListAPIView(generics.ListAPIView):
+    serializer_class = SubscriptionListSerializer
+
+    def get_queryset(self):
+        return Subscription.objects.filter(user=self.request.user)
+
+
+class SubscriptionDestroyAPIView(generics.DestroyAPIView):
+    serializer_class = SubscriptionSerializer
+    permission_classes = [IsNotStaffUser]
+
+    def get_queryset(self):
+        return Subscription.objects.filter(user=self.request.user)
